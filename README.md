@@ -19,9 +19,15 @@ fastapi==0.115.12
 uvicorn==0.34.0
 motor==3.7.0
 python-dotenv==1.1.0
+beautifulsoup4==4.13.3
+requests==2.32.3
+lxml==5.3.0
+tldextract==5.1.3
 pip install -r requirements.txt
 
 Run API
 uvicorn --app-dir ./src main:app --reload
+uvicorn --app-dir ./src --env-file .env main:app --reload
+node:23.11.0-bullseye-slim
 
-
+npm install axios bootstrap

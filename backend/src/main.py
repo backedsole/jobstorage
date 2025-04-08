@@ -1,6 +1,7 @@
 from model import Vacancy
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from parser import parseJob
 
 #App object
 app = FastAPI()
@@ -32,30 +33,38 @@ async def get_jobs():
     response = await fetch_all_jobs()
     return response
 
-@app.get("/api/job/{title}", response_model=Vacancy)
-async def get_job_by_id(title):
-    response = await fetch_one_job(title)
+@app.get("/api/parse/", response_model=Vacancy|str)
+async def parse_job_from_url(url: str):
+    response = await fetch_one_job(url)
     if response:
         return response
-    raise HTTPException(404, f"There is no job with ths title {title}")
+    else:
+        return parseJob(url)
+    
+@app.get("/api/job/", response_model=Vacancy)
+async def get_job_by_id(url: str):
+    response = await fetch_one_job(url)
+    if response:
+        return response
+    raise HTTPException(404, f"There is no job with this url {url}")
 
 @app.post("/api/job", response_model=Vacancy)
 async def post_job(job: Vacancy):
-    response = await insert_job(job.dict())
+    response = await insert_job(job.model_dump())
     if response:
         return response
     raise HTTPException(400, "Something went wrong")
 
 @app.put("/api/job", response_model=Vacancy)
-async def put_job(title:str, desc:str):
-    response = await update_job(title, desc)
+async def put_job(url:str, desc:str):
+    response = await update_job(url, desc)
     if response:
         return response
-    raise HTTPException(404, f"There is no job with ths title {title}")
+    raise HTTPException(404, f"There is no job with this url {url}")
 
-@app.delete("/api/job/{title}")
-async def delete_job(title):
-    response = await remove_job(title)
+@app.delete("/api/job/")
+async def delete_job(url: str):
+    response = await remove_job(url)
     if response:
         return "Succesfully deleted job"
-    raise HTTPException(404, f"There is no job with ths title {title}")
+    raise HTTPException(404, f"There is no job with ths title {url}")

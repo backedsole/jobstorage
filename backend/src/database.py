@@ -11,8 +11,8 @@ client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_CONNECTION_STRING)
 db = client.JobStorage
 collection = db.jobs
 
-async def fetch_one_job(title):
-    document = await collection.find_one({"title":title})
+async def fetch_one_job(url):
+    document = await collection.find_one({"url":url})
     return document
 
 async def fetch_all_jobs():
@@ -27,11 +27,11 @@ async def insert_job(job):
     result = await collection.insert_one(document)
     return document
 
-async def update_job(title, desc):
-    await collection.update_one({"title":title},{"$set":{"description":desc}})
-    document = await collection.find_one({"title":title})
+async def update_job(url, desc):
+    await collection.update_one({"url":url},{"$set":{"description":desc}})
+    document = await collection.find_one({"url":url})
     return document
 
-async def remove_job(title):
-    await collection.delete_one({"title":title})
+async def remove_job(url):
+    await collection.delete_one({"url":url})
     return True
