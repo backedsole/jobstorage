@@ -23,10 +23,9 @@ beautifulsoup4==4.13.3
 requests==2.32.3
 lxml==5.3.0
 tldextract==5.1.3
-httpx==0.28.1
 pip install -r requirements.txt
 
-
+sudo apt-get install language-pack-uk
 
 Run API
 source .venv/bin/activate
