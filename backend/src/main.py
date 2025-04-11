@@ -1,6 +1,7 @@
 from model import Vacancy
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from datetime import datetime
 from parser import parseJob
 
 #App object
@@ -8,8 +9,11 @@ app = FastAPI()
 
 from database import (
     fetch_one_job,
-    fetch_all_jobs,
+    fetch_duplicates,
     insert_job,
+    insert_duplicate,
+
+    fetch_all_jobs,
     update_job,
     remove_job,
 )
@@ -26,20 +30,84 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    return {"Ping":"Pong"}
+    return {"<h1>Use API</h1>"}
 
-@app.get("/api/job")
-async def get_jobs():
-    response = await fetch_all_jobs()
+# Parsing vacancy from url
+@app.get("/api/parse/")
+async def parse_job_from_url(url: str):
+    response = {}
+    result = await fetch_one_job(url)
+    if type(result) == Vacancy:
+        response['msg'] = 'Already in database'
+    else:
+        result = parseJob(url)
+        if  type(result) != Vacancy:
+            response['msg'] =  result
+            return response
+
+    response['vacancy'] = result
+
+    duplicates = await fetch_duplicates(result)
+    if duplicates:
+        response['duplicates'] = duplicates
+
     return response
 
-@app.get("/api/parse/", response_model=Vacancy|str)
-async def parse_job_from_url(url: str):
-    response = await fetch_one_job(url)
+#Adding vacancy to database
+@app.post("/api/job", response_model=Vacancy)
+async def post_job(job: Vacancy):
+    print("aaa")
+    response = await insert_job(job.model_dump())
     if response:
         return response
-    else:
-        return parseJob(url)
+    raise HTTPException(400, "Something went wrong")
+
+#Adding duplicate vacancy to database document
+@app.post("/api/job/duplicate", response_model=Vacancy)
+async def post_duplicate(data: dict):
+    print("aaa")
+    print(data)
+    print(type(data))
+    response = await insert_duplicate(data["duplicateUrl"], data["url"])
+    print("bbb")
+    if response:
+        return response
+    raise HTTPException(400, "Something went wrong")
+
+# @app.get("/api/job")
+# async def get_jobs():
+#     response = await fetch_all_jobs()
+#     return response
+
+# @app.get("/api/job/duplicates")
+# async def get_jobs(url: str):
+#     #response = {}
+#     result = await fetch_one_job(url)
+#     if type(result) == Vacancy:
+#         duplicates = await fetch_duplicates(result)
+#         return duplicates
+#     else:  
+#         raise HTTPException(404, f"There is no job with this url {url}")
+
+
+    # if type(result) != Vacancy:
+    #     result = parseJob(url)
+    #     if  type(result) != Vacancy:
+    #         return result
+    
+    # duplicates = fetch_duplicates(result)
+    # full_response = {'vacancy': result, }
+    #     return response
+    # else:
+    #     return parseJob(url)
+
+# @app.get("/api/parse/", response_model=Vacancy|str)
+# async def parse_job_from_url(url: str):
+#     response = await fetch_one_job(url)
+#     if response:
+#         return response
+#     else:
+#         return parseJob(url)
     
 @app.get("/api/job/", response_model=Vacancy)
 async def get_job_by_id(url: str):
@@ -48,12 +116,7 @@ async def get_job_by_id(url: str):
         return response
     raise HTTPException(404, f"There is no job with this url {url}")
 
-@app.post("/api/job", response_model=Vacancy)
-async def post_job(job: Vacancy):
-    response = await insert_job(job.model_dump())
-    if response:
-        return response
-    raise HTTPException(400, "Something went wrong")
+
 
 @app.put("/api/job", response_model=Vacancy)
 async def put_job(url:str, desc:str):

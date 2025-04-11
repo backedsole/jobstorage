@@ -23,10 +23,13 @@ beautifulsoup4==4.13.3
 requests==2.32.3
 lxml==5.3.0
 tldextract==5.1.3
+httpx==0.28.1
 pip install -r requirements.txt
 
+
+
 Run API
-uvicorn --app-dir ./src main:app --reload
+source .venv/bin/activate
 uvicorn --app-dir ./src --env-file .env main:app --reload
 node:23.11.0-bullseye-slim
 

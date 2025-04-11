@@ -4,11 +4,12 @@ import tldextract
 #from database import fetch_one_job
 from model import Vacancy
 from datetime import datetime
+import re
+import httpx
+import json
 
 
 
-def parseJobRobotaUa(url: str):
-    pass
 
 def parseJobDouUa(url: str):
     pass
@@ -36,15 +37,114 @@ def parseJob(url: str):
             case "work.ua":
                 job = parseJobWorkUa(html.text)
             case "robota.ua":
-                job = parseJobRobotaUa(html.text)
+                job = parseJobRobotaUa(url)
             case "dou.ua":
                 job = parseJobDouUa(html.text)
         if job:
-            job.url = url
+            job.url = [url]
             job.site = domain.registered_domain
             return job
         else:
             return "Can't parse job"
+
+# Parcer for robota.ua
+def parseJobRobotaUa(url: str):
+    
+    # jobId = url[url.find("vacancy")+7:url.find("?")+1]
+    # print(url[url.find("vacancy")+7:url.find("?")+1])
+    # url = url+"?"
+    # x = url.find("?")
+    # if x == -1:
+    #     print(url[url.find("vacancy")+7:])
+    # else:
+    #     print(url[(url.find("vacancy")+7):(url.find("?"))])
+
+    print(url)
+
+    x = re.search(r"vacancy[0-9]+", url)
+    if not(x):
+        return 0
+    y = re.search(r"[0-9]+", x.group())
+    if not(y):
+        return 0
+    jobId = y.group()
+    print(jobId)
+
+    query = '{"query":"query getPublishedVacancy($id: ID!,                     , $trackView: Boolean) {\\n  publishedVacancy(id: $id, trackView: $trackView) {\\n    ...PublishedVacancyPage\\n    __typename\\n  }\\n}\\n\\nfragment PublishedVacancyPage on Vacancy {\\n  title\\n  city {\\n    name\\n    __typename\\n  }\\n  company {\\n    ...CompanyInfo\\n    __typename\\n  }\\n  salary {\\n    comment\\n    amount\\n    amountFrom\\n    amountTo\\n    __typename\\n  }\\n  sortDate\\n  address {\\n    name\\n    district {\\n      name\\n      __typename\\n    }\\n    metro {\\n      name\\n      __typename\\n    }\\n    __typename\\n  }\\n  distanceText\\n  badges {\\n    ...Badge\\n    __typename\\n  }\\n  fullDescription\\n  contacts {\\n    name\\n    phones\\n    socials\\n    __typename\\n  }\\n  isActive\\n  branch {\\n    name\\n    __typename\\n  }\\n  schedules {\\n    name\\n    __typename\\n  }\\n}\\n\\nfragment CompanyInfo on Company {\\n  name\\n  miniProfile {\\n    ...CompanyMiniProfileInfo\\n    __typename\\n  }\\n  __typename\\n}\\n\\nfragment CompanyMiniProfileInfo on CompanyMiniProfile {\\n  description\\n  benefits {\\n    name\\n    __typename\\n  }\\n  __typename\\n}\\n\\nfragment Badge on PublishedVacancyBadge {\\n  name\\n  __typename\\n}\\n\\n","variables":{"id":"' + jobId + '","trackView":false,"isBrowser":true},"operationName":"getPublishedVacancy"}'
+    endpoint = 'https://dracula.robota.ua/'   
+    # print(query)
+
+    headers = {"content-type": "application/json",}
+
+    try:
+        response = requests.post(endpoint, data=query, headers=headers)
+
+        vacancy_json = (json.loads(response.content.decode('utf-8')))['data']['publishedVacancy']
+        print(vacancy_json)
+        job = Vacancy()
+
+        job.position = vacancy_json['title'].strip()
+        #print(job.position)
+        job.addedOnSite = datetime.strptime(vacancy_json['sortDate'], "%Y-%m-%dT%H:%M:%S.%f")
+        #print(job.addedOnSite)
+        job.description = vacancy_json['fullDescription'].strip()
+        #print(job.description)
+    except:
+        return 0
+  
+    def get_attr(cb, default = None):
+        try:    
+            return cb()
+        except:
+            return default
+
+    job.organization = get_attr(lambda: vacancy_json['company']['name'])
+
+    list = [get_attr(lambda: vacancy_json['contacts']['name'])]
+    list += get_attr(lambda: vacancy_json['contacts']['phones'], [])
+    list += get_attr(lambda: vacancy_json['contacts']['socials'], [])
+
+    job.recruiterContacts = ', '.join([str(x) for x in list if x != None and x != ''])
+
+    list = [get_attr(lambda: vacancy_json['city']['name'])]
+    list.append(get_attr(lambda: vacancy_json['address']['name']))
+    list.append(get_attr(lambda: vacancy_json['address']['district']['name']))
+    list.append(get_attr(lambda: vacancy_json['address']['metro']['name']))
+
+    job.officeAddress = ', '.join([str(x) for x in list if x != None and x != ''])
+    
+    list = [get_attr(lambda: vacancy_json['salary']['amount'])]
+    list.append(get_attr(lambda: vacancy_json['salary']['amountFrom']))
+    list.append(get_attr(lambda: vacancy_json['salary']['amountTo']))
+    list.append(get_attr(lambda: vacancy_json['salary']['comment']))
+    
+    job.salary = ', '.join([str(x) for x in list if x != None and x != ''])
+   
+    list = []
+    schedules = get_attr(lambda: vacancy_json['schedules'])
+    if schedules:
+        print(schedules)
+        for schedule in schedules:
+            if 'name' in schedule:
+                list.append(schedule['name'])
+    badges = get_attr(lambda: vacancy_json['badges'])
+    if badges:
+        print(badges)
+        for badge in badges:
+            if 'name' in badge:
+                list.append(badge['name'])
+    benefits = get_attr(lambda: vacancy_json['company']['miniProfile']['benefits'])
+    if benefits:
+        print(benefits)
+        for benefit in benefits:
+            if 'name' in benefit:
+                list.append(benefit['name'])
+
+    job.conditions = ', '.join([str(x) for x in list if x != None and x != ''])
+
+    return job
+
+
 
 def parseJobWorkUa(html_text: str):
     
@@ -148,7 +248,13 @@ def parseJobWorkUa(html_text: str):
 
 
 #parseJob('https://www.work111.ua/234/')
-#status = parseJob('https://www.work111.ua/ggggg')
-#print(status)
+# status = parseJob('https://robota.ua/company768991/vacancy10501268')
+status = parseJob('https://robota.ua/company1225366/vacancy10514772')
+# status = parseJob('https://robota.ua/company1247745/vacancy10160894?cre=sauron&ref=recom_score&pos=dkp_recom_vacancy_hot')
+# status = parseJob('https://robota.ua/company1225366/vacancy8564929?ref=search&cre=search_new&pos=dkp_search_new')
+print(status)
 #status = parseJob('https://www.work.ua/en/jobs/6451234/')
-#print(status)
+# print(status.recruiterContacts)
+
+
+
