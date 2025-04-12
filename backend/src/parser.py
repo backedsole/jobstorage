@@ -12,34 +12,21 @@ def parseJob(url: str):
     domains = ("work.ua", "robota.ua", "dou.ua")
 
     domain = tldextract.extract(url)
-    print(f"!!!{domain.registered_domain}!!!")
+    # print(f"!!!{domain.registered_domain}!!!")
 
     if domain.registered_domain not in domains:
         return "Domain not supported"
    
     headers = {
-        # "Host": "jobs.dou.ua",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:137.0) Gecko/20100101 Firefox/137.0",
-        # "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        #"Accept-Language": "en-US,en;q=0.5",
-        # "Accept-Encoding": "gzip, deflate, br, zstd",
-        # "Connection": "keep-alive",
-        # "Cookie": "csrftoken=QQOGvaKbF632H8vQoFRhuL8todaVa2Pf; _ga_N62L6SV4PV=GS1.1.1744396154.1.1.1744396163.51.0.0; _ga=GA1.1.1504093007.1744396155; _gcl_au=1.1.1675220798.1744396155",
-        # "Upgrade-Insecure-Requests": "1",
-        # "Sec-Fetch-Dest": "document",
-        # "Sec-Fetch-Mode": "navigate",
-        # "Sec-Fetch-Site": "none",
-        # "Sec-Fetch-User": "?1",
-        # "Priority": "u=0, i",
-        # "Pragma": "no-cache",
     }
-    print(headers)
+    # print(headers)
 
     try:
-        print(url)
+        # print(url)
         html = requests.get(url, headers=headers)
-        print (html.status_code)
-        print(html.text)
+        # print (html.status_code)
+        # print(html.text)
         if html.status_code != 200:
             return "Can't parse job"
     except requests.exceptions.RequestException:
@@ -63,25 +50,15 @@ def parseJob(url: str):
 # Parcer for robota.ua
 def parseJobRobotaUa(url: str):
     
-    # jobId = url[url.find("vacancy")+7:url.find("?")+1]
-    # print(url[url.find("vacancy")+7:url.find("?")+1])
-    # url = url+"?"
-    # x = url.find("?")
-    # if x == -1:
-    #     print(url[url.find("vacancy")+7:])
-    # else:
-    #     print(url[(url.find("vacancy")+7):(url.find("?"))])
+    # print(url)
 
-    print(url)
-
-    x = re.search(r"vacancy[0-9]+", url)
+    # x = re.search(r"vacancy[0-9]+", url)
+    x = re.search(r"vacancy([0-9]+)", url)
+    #print(x.groups()[0])
     if not(x):
         return 0
-    y = re.search(r"[0-9]+", x.group())
-    if not(y):
-        return 0
-    jobId = y.group()
-    print(jobId)
+    jobId = x.groups()[0]
+    #print(jobId)
 
     query = '{"query":"query getPublishedVacancy($id: ID!,                     , $trackView: Boolean) {\\n  publishedVacancy(id: $id, trackView: $trackView) {\\n    ...PublishedVacancyPage\\n    __typename\\n  }\\n}\\n\\nfragment PublishedVacancyPage on Vacancy {\\n  title\\n  city {\\n    name\\n    __typename\\n  }\\n  company {\\n    ...CompanyInfo\\n    __typename\\n  }\\n  salary {\\n    comment\\n    amount\\n    amountFrom\\n    amountTo\\n    __typename\\n  }\\n  sortDate\\n  address {\\n    name\\n    district {\\n      name\\n      __typename\\n    }\\n    metro {\\n      name\\n      __typename\\n    }\\n    __typename\\n  }\\n  distanceText\\n  badges {\\n    ...Badge\\n    __typename\\n  }\\n  fullDescription\\n  contacts {\\n    name\\n    phones\\n    socials\\n    __typename\\n  }\\n  isActive\\n  branch {\\n    name\\n    __typename\\n  }\\n  schedules {\\n    name\\n    __typename\\n  }\\n}\\n\\nfragment CompanyInfo on Company {\\n  name\\n  miniProfile {\\n    ...CompanyMiniProfileInfo\\n    __typename\\n  }\\n  __typename\\n}\\n\\nfragment CompanyMiniProfileInfo on CompanyMiniProfile {\\n  description\\n  benefits {\\n    name\\n    __typename\\n  }\\n  __typename\\n}\\n\\nfragment Badge on PublishedVacancyBadge {\\n  name\\n  __typename\\n}\\n\\n","variables":{"id":"' + jobId + '","trackView":false,"isBrowser":true},"operationName":"getPublishedVacancy"}'
     endpoint = 'https://dracula.robota.ua/'   
@@ -137,24 +114,27 @@ def parseJobRobotaUa(url: str):
     list = []
     schedules = get_attr(lambda: vacancy_json['schedules'])
     if schedules:
-        print(schedules)
+        # print(schedules)
         for schedule in schedules:
             if 'name' in schedule:
                 list.append(schedule['name'])
     badges = get_attr(lambda: vacancy_json['badges'])
     if badges:
-        print(badges)
+        # print(badges)
         for badge in badges:
             if 'name' in badge:
                 list.append(badge['name'])
     benefits = get_attr(lambda: vacancy_json['company']['miniProfile']['benefits'])
     if benefits:
-        print(benefits)
+        # print(benefits)
         for benefit in benefits:
             if 'name' in benefit:
                 list.append(benefit['name'])
 
     job.conditions = ', '.join([str(x) for x in list if x != None and x != ''])
+
+    job.closed = not get_attr(lambda: vacancy_json['isActive1'])
+    # print(job.closed)
 
     return job
 
@@ -168,34 +148,24 @@ def parseJobWorkUa(html_text: str, url: str):
     try:
         position_tag = soup.find('h1', id='h1-name')
         #print(position_tag)
-        #if position_tag.text:
         job.position = position_tag.text#.contents[0]
         #print(job.position)
-        #else:
-        #return 0
     except:
         return 0
 
     try:
         description_tag = soup.find('div', id='job-description')
         #print(description_tag.text[:100])
-        #if description_tag.contents:
-        #job.description = ""#.join(description_tag.contents.)
-        # for tag in description_tag.contents:
-        #     job.description = job.description.join(tag)
         job.description = "".join([str(x) for x in description_tag.contents])
         #print(job.description[:100])
-        #else:
-        #return 0
     except:
         return 0
-    #newlist = [x for x in fruits if "a" in x]
+
     try:
         date_tag = soup.find('time')
         #print(date_tag.attrs['datetime'])
         # date_time = datetime.strptime(date_tag.attrs['datetime'], "%Y-%m-%d %H:%M:%S")
         date_time = datetime.strptime(date_tag.attrs['datetime'][:16], "%Y-%m-%d %H:%M")
-    #    date_time = datetime.datetime.strptime(date_tag.attrs['datetime'], "%Y-%d %H:%M:%S")
         #print(date_time.strftime("%H:%M %B"))
         job.addedOnSite = date_time
         #print(job.addedOnSite)
@@ -212,7 +182,7 @@ def parseJobWorkUa(html_text: str, url: str):
         pass
 
     try:
-        address_tag = soup.find('span', class_='glyphicon-map-marker').find_parent()#.find_next_sibling()
+        address_tag = soup.find('span', class_='glyphicon-map-marker').find_parent()
         #print(address_tag.text[:20])
         if address_tag.text:
             job.officeAddress = address_tag.text.strip()
@@ -250,14 +220,6 @@ def parseJobWorkUa(html_text: str, url: str):
     #print(job)
     return job
 
-
-"""     if 
-        print(type(domains[0]))
-    if  """
-"""     job = fetch_one_job(url)
-    if job:
-        return job """
-
 # Parcer for work.ua
 def parseJobDouUa(html_text: str, url: str):
     
@@ -267,9 +229,15 @@ def parseJobDouUa(html_text: str, url: str):
 
     try:
         position_tag = soup.find('h1')
-        #print(position_tag)
-        job.position = position_tag.text
-        #print(job.position)
+        # print(position_tag)
+        isClosed = re.search(r"вакансія неактивна", position_tag.text)
+        if isClosed:
+            job.closed = True
+            job.position = position_tag.text.replace(f" (вакансія неактивна)", "")
+        else:        
+            job.position = position_tag.text
+        # print (job.closed)
+        # print(job.position)
     except:
         return 0
 
@@ -299,7 +267,7 @@ def parseJobDouUa(html_text: str, url: str):
         salary_tag = soup.find('span', class_='salary')
         # print(salary_tag)
         if salary_tag.text:
-            job.salary = salary_tag.text#" ".join(salary_tag.text.split())
+            job.salary = salary_tag.text
             # print(job.salary)
     except:
         pass
@@ -313,46 +281,22 @@ def parseJobDouUa(html_text: str, url: str):
     except:
         pass
 
-    # try:
-    #     address_tag = soup.find('span', class_='glyphicon-map-marker').find_parent()#.find_next_sibling()
-    #     #print(address_tag.text[:20])
-    #     if address_tag.text:
-    #         job.officeAddress = address_tag.text.strip()
-    #         #print(job.officeAddress.splitlines()[0])
-    # except:
-    #     pass
-
-    # try:
-    #     contacts_tag = soup.find('span', class_='glyphicon-phone').find_parent()
-    #     #print(contacts_tag)
-    #     if contacts_tag.text:
-    #         job.recruiterContacts = contacts_tag.text
-    #         #print(job.recruiterContacts)
-    # except:
-    #     pass
-  
-    # try:
-    #     conditions_tag = soup.find('span', class_='glyphicon glyphicon-tick text-default glyphicon-large').find_parent()
-    #     #print(conditions_tag)
-    #     if conditions_tag.text:
-    #         job.conditions = " ".join(conditions_tag.text.split())
-    #         #print(job.conditions)
-    # except:
-    #     pass
-
     #print(job)
     return job
 
 
 #parseJob('https://www.work111.ua/234/')
-status = parseJob('https://jobs.dou.ua/companies/obltelekom/vacancies/296214/')
+# status = parseJob('https://jobs.dou.ua/companies/obltelekom/vacancies/296214/')
 # status = parseJob('https://robota.ua/company768991/vacancy10501268')
 # status = parseJob('https://robota.ua/company1225366/vacancy10514772')
 # status = parseJob('https://robota.ua/company1247745/vacancy10160894?cre=sauron&ref=recom_score&pos=dkp_recom_vacancy_hot')
 # status = parseJob('https://robota.ua/company1225366/vacancy8564929?ref=search&cre=search_new&pos=dkp_search_new')
 
 # status = parseJob('https://www.work.ua/en/jobs/6451234/')
-print(status)
+
+# status = parseJob('https://robota.ua/company12801971/vacancy10425207')
+# status = parseJob('https://jobs.dou.ua/companies/ooo-ukrnet/vacancies/299957/')
+# print(status)
 # print(status.recruiterContacts)
 
 
