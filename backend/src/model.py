@@ -1,8 +1,12 @@
 from pydantic import BaseModel
 import datetime
+# from uuid import UUID
 
 class Vacancy(BaseModel):
-    url: list[str] | None = None 
+    id: str | None = None
+    mainId: str | None = None
+    url: str | None = None
+    originalUrls: list[str] | None = None 
     site: str | None = None
     category: str | None = None 
     position: str | None = None 

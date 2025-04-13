@@ -41,7 +41,7 @@ def parseJob(url: str):
             case "dou.ua":
                 job = parseJobDouUa(html.text, url)
         if job:
-            job.url = [url]
+            job.url = url
             job.site = domain.registered_domain
             return job
         else:
@@ -70,7 +70,7 @@ def parseJobRobotaUa(url: str):
         response = requests.post(endpoint, data=query, headers=headers)
 
         vacancy_json = (json.loads(response.content.decode('utf-8')))['data']['publishedVacancy']
-        print(vacancy_json)
+        # print(vacancy_json)
         job = Vacancy()
 
         job.position = vacancy_json['title'].strip()
@@ -133,7 +133,7 @@ def parseJobRobotaUa(url: str):
 
     job.conditions = ', '.join([str(x) for x in list if x != None and x != ''])
 
-    job.closed = not get_attr(lambda: vacancy_json['isActive1'])
+    job.closed = not get_attr(lambda: vacancy_json['isActive'])
     # print(job.closed)
 
     return job
