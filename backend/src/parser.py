@@ -1,7 +1,7 @@
 from bs4 import BeautifulSoup
 import requests
 import tldextract
-from model import Vacancy
+from model import SiteVacancy
 from datetime import datetime
 import re
 import json
@@ -41,7 +41,7 @@ def parseJob(url: str):
             case "dou.ua":
                 job = parseJobDouUa(html.text, url)
         if job:
-            job.url = [url]
+            job.url = url
             job.site = domain.registered_domain
             return job
         else:
@@ -70,8 +70,8 @@ def parseJobRobotaUa(url: str):
         response = requests.post(endpoint, data=query, headers=headers)
 
         vacancy_json = (json.loads(response.content.decode('utf-8')))['data']['publishedVacancy']
-        print(vacancy_json)
-        job = Vacancy()
+        # print(vacancy_json)
+        job = SiteVacancy()
 
         job.position = vacancy_json['title'].strip()
         #print(job.position)
@@ -133,7 +133,8 @@ def parseJobRobotaUa(url: str):
 
     job.conditions = ', '.join([str(x) for x in list if x != None and x != ''])
 
-    job.closed = not get_attr(lambda: vacancy_json['isActive1'])
+    job.closed = not get_attr(lambda: vacancy_json['isActive'])
+    # print(get_attr(lambda: vacancy_json['isActive']))
     # print(job.closed)
 
     return job
@@ -143,7 +144,7 @@ def parseJobWorkUa(html_text: str, url: str):
     
     soup = BeautifulSoup(html_text, 'lxml')
 
-    job = Vacancy()
+    job = SiteVacancy()
 
     try:
         position_tag = soup.find('h1', id='h1-name')
@@ -225,7 +226,7 @@ def parseJobDouUa(html_text: str, url: str):
     
     soup = BeautifulSoup(html_text, 'lxml')
     # print(soup)
-    job = Vacancy()
+    job = SiteVacancy()
 
     try:
         position_tag = soup.find('h1')

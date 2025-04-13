@@ -1,4 +1,4 @@
-from model import Vacancy
+from model import Vacancy, SiteVacancy, SiteVacancyDB, MainVacancy, MainVacancyDB
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
@@ -10,9 +10,11 @@ app = FastAPI()
 from database import (
     fetch_one_job,
     fetch_duplicates,
-    insert_job,
+    # insert_job,
+    insert_site_job,
+    insert_main_job,
     insert_duplicate,
-
+    fetch_main_job,
     fetch_all_jobs,
     update_job,
     remove_job,
@@ -36,31 +38,54 @@ def read_root():
 @app.get("/api/parse/")
 async def parse_job_from_url(url: str):
     response = {}
-    result = await fetch_one_job(url)
-    if type(result) == Vacancy:
+    result = 0#await fetch_one_job(url)
+    if type(result) == MainVacancyDB:
         response['msg'] = 'Already in database'
     else:
         result = parseJob(url)
-        if  type(result) != Vacancy:
+        if  type(result) != SiteVacancy:
             response['msg'] =  result
             return response
 
     response['vacancy'] = result
 
-    duplicates = await fetch_duplicates(result)
+    duplicates = 0#await fetch_duplicates(result)
     if duplicates:
         response['duplicates'] = duplicates
 
     return response
 
 #Adding vacancy to database
-@app.post("/api/job", response_model=Vacancy)
-async def post_job(job: Vacancy):
-    print("aaa")
-    response = await insert_job(job.model_dump())
-    if response:
-        return response
-    raise HTTPException(400, "Something went wrong")
+@app.post("/api/job", response_model=MainVacancyDB)
+async def post_job(job: SiteVacancy):
+    job.description = ""
+    vacancy_dump = job.model_dump()
+    # print(vacancy_dump)
+    vacancy_dump.pop('url')
+    # print(vacancy_dump)
+    vacancy_dump['urlList'] = [job.url]
+    vacancy_dump['site'] = "Main"
+    # print(vacancy_dump)
+    mainVacancy = MainVacancy(**vacancy_dump)
+    # print(mainVacancy)
+    mainVacancyId = await insert_main_job(mainVacancy)
+    print(f"\n {mainVacancyId}\n")
+    if mainVacancyId:
+        # vacancy_dump = job.model_dump()
+        # vacancy_dump['mainId'] = mainVacancyId
+        vacancy_dump = job.model_dump()
+        vacancy_dump['mainId'] = f"{mainVacancyId}"
+        print(SiteVacancyDB(**vacancy_dump))
+        result = await insert_site_job(SiteVacancyDB(**vacancy_dump))
+        if result:
+            mainVacancyDB_dump = mainVacancy.model_dump()
+            mainVacancyDB_dump['id'] = mainVacancyId
+            print(mainVacancyDB_dump)
+            return 1#MainVacancyDB(**mainVacancyDB_dump)
+        else:
+            raise HTTPException(400, "Something went wrong")
+    else:
+        raise HTTPException(400, "Something went wrong")
 
 #Adding duplicate vacancy to database document
 @app.post("/api/job/duplicate", response_model=Vacancy)

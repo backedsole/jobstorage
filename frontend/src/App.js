@@ -51,7 +51,7 @@ function App() {
     // Add job to database
     const addJobHandler = () => {
       vacancy.addedToBase = new Date().toISOString();
-      axios.post('http://localhost:8000/api/job', { ...vacancy, url: [url]})
+      axios.post('http://localhost:8000/api/job', { ...vacancy, url: url})
       .then(res => console.log(res))
     };
 
