@@ -19,7 +19,7 @@ async def fetch_one_job(url: str):
     except:
         return 0
     
-async def fetch_job_by_id_main(id: str):
+async def fetch_main_job_by_id(id: str):
     try:
         job = await collection.find_one({"id": id})
         return Vacancy(**job)
@@ -50,11 +50,11 @@ async def fetch_duplicates(job: Vacancy):
     for item in await cursor.to_list(length=100):
         print(item)
         if item['url']:
-            duplicates.append({'id': item['id'], 'url': item['url'],
+            duplicates.append({'mainId': item['mainId'], 'url': item['url'],
                                 'organization': item['organization'], 'position': item['position']})
         else:
             print("else")
-            duplicates.append({'id': item['id'], 'site': 'Main',
+            duplicates.append({'mainId': item['id'], 'site': 'Main',
                             'organization': item['organization'], 'position': item['position']})
     return duplicates
 
@@ -71,10 +71,9 @@ async def insert_job(job: Vacancy):
         # print(we)
         return 0
 
-async def insert_duplicate(duplicateUrl, url):
-    await collection.update_one({"url":url},{"$addToSet":{"url":duplicateUrl}})
-    document = await collection.find_one({"url":url})
-    return document
+async def insert_duplicate(duplicateUrl, mainId):
+    result = await collection.update_one({"id": mainId},{"$addToSet": {"originalUrls": duplicateUrl}})
+    return result
 
 
 async def fetch_all_jobs():
@@ -86,11 +85,15 @@ async def fetch_all_jobs():
 
 
 
-async def update_job(url, desc):
-    await collection.update_one({"url":url},{"$set":{"description":desc}})
-    document = await collection.find_one({"url":url})
-    return document
+# async def update_job(url, desc):
+#     # await collection.update_one({"url":url},{"$set":{"description":desc}})
 
-async def remove_job(url):
-    await collection.delete_one({"url":url})
-    return True
+#     document = await collection.find_one({"url":url})
+#     return document
+
+async def delete_job(id):
+    try:
+        result = await collection.delete_one({"id": id})
+        return result.deleted_count
+    except:
+        return 0

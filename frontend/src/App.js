@@ -30,7 +30,7 @@ function stringifyTags(tags = []) {
 
 function App() {
 
-  const [jobList, setJobList] = useState()
+  // const [jobList, setJobList] = useState()
   const [url, setUrl] = useState('')
   const [error, setError] = useState('')
   const [mainVacancy, setMainVacancy] = useState({})
@@ -59,8 +59,9 @@ function App() {
     };
 
     // Add parsed vacancy as duplicate to existing one in database
-    const addDuplicateHandler = (dupId) => {
-      axios.post('http://localhost:8000/api/job/duplicate', { duplicateUrl: vacancy.url, id: dupId })
+    const addAsDuplicateHandler = (mainId) => {
+      vacancy.addedToBase = new Date().toISOString();
+      axios.post('http://localhost:8000/api/job/duplicate', { vacancy: vacancy, mainId: mainId })
       .then(res => console.log(res))
     };
 
@@ -77,14 +78,14 @@ function App() {
     }; 
 
     // Open Main vacancy details
-    const showMainJobHandler = (dupId) => {
-      if (!dupId) {
+    const showMainJobHandler = (mainId) => {
+      if (!mainId) {
         setPopupVacancy();
         return;
       }
 
       //Open details in separate tab
-      axios.get(`http://localhost:8000/api/job/main?jobId=${dupId}`)
+      axios.get(`http://localhost:8000/api/job/main/?jobId=${mainId}`)
         .then(res => {
           console.log(res);
           setError(res.data.msg);
@@ -92,25 +93,47 @@ function App() {
         })
     };
 
+    
     // Load Main Vacancy details
-    const LoadMainJobHandler = (jobId) => {
-      axios.get(`http://localhost:8000/api/job/?jobId=${jobId}`)
+    const findMainJobHandler = (url) => {
+      axios.get(`http://localhost:8000/api/job/findmain/?url=${encodeURIComponent(url)}`)
         .then(res => {
-          setError(res.data.msg);
+          setError(null);
+          console.log(res);
           setDuplicates(null);
-          setMainVacancy(res.data.vacancy);       
+          setMainVacancy(res.data);       
         })
     };
 
+    // // Load Main Vacancy details
+    // const loadMainJobHandler = (jobId) => {
+    //   axios.get(`http://localhost:8000/api/job/?jobId=${jobId}`)
+    //     .then(res => {
+    //       setError(res.data.msg);
+    //       setDuplicates(null);
+    //       setMainVacancy(res.data.vacancy);       
+    //     })
+    // };
+
     // Load Site Vacancy details
-    const LoadSiteJobHandler = (jobId) => {
-      axios.get(`http://localhost:8000/api/job/?jobId=${encodeURIComponent(url)}`)
+    const loadSiteJobHandler = (url) => {
+      axios.get(`http://localhost:8000/api/job/?url=${encodeURIComponent(url)}`)
         .then(res => {
-          setError(res.data.msg);
+          setError(null);
           setDuplicates(null);
-          setMainVacancy(res.data.vacancy);       
+          setMainVacancy(res.data);       
         })
     };
+
+    // Update existing entry in database
+    const updateJobHandler = () => {
+      axios.post('http://localhost:8000/api/job/update', {vacancy})
+        .then(res => {
+          setError(res);
+          console.log(res)
+        })
+    };
+
 
   return (
     <div className="App list-group-item justify-content-center align-items-center mx-auto" 
@@ -126,18 +149,18 @@ function App() {
               <input className="mb-2 form-control" placeholder='Enter vacancy URL' 
                 onChange={event => setUrl(event.target.value)} value={url}/>
               { error && 
-                <div class="alert alert-info" role="alert">
+                <div className="alert alert-info" role="alert">
                   {error}
-                  {error === "Already in database" &&
+                  {error.startsWith("Already in database") &&
                     <>.  Added: { new Date(vacancy.addedToBase).toDateString()}
                     <button className="btn btn-outline-primary mx-2 mb-3" style={{'borderRadius':'50px',
-                      "fontWeight":"bold"}} onClick={LoadMainJobHandler()}>Load Main Vacancy</button>
+                      "fontWeight":"bold"}} onClick={() => findMainJobHandler(vacancy.url)}>Load Main Vacancy</button>
                     </>
                   }
                 </div>
               }
               <button className="btn btn-outline-primary mx-2 mb-3" style={{'borderRadius':'50px',
-              "fontWeight":"bold"}} onClick={parseJobHandler}>Load vacancy</button>
+              "fontWeight":"bold"}} onClick={() => parseJobHandler()}>Load vacancy</button>
             </>
           }
           <div className="d-flex align-items-center column-gap-3">
@@ -166,51 +189,40 @@ function App() {
               ))}
             </select>
           </div>
-          <button className="btn btn-outline-primary mx-2 mb-3" style={{'borderRadius':'50px',
-          "fontWeight":"bold"}} onClick={addJobHandler}>Add to database</button>
 
-          {/* {vacancy?.originalUrls &&
+          {!vacancy?.id && !error?.startsWith("Already in database") &&
+            <button className="btn btn-outline-primary mx-2 mb-3" style={{'borderRadius':'50px',
+            "fontWeight":"bold"}} onClick={() => addJobHandler()}>Add to database</button>
+          }
+
+          {(vacancy?.id || error?.startsWith("Already in database")) &&
+            <button className="btn btn-outline-primary mx-2 mb-3" style={{'borderRadius':'50px',
+            "fontWeight":"bold"}} onClick={() => updateJobHandler(vacancy.id)}>Update in database</button>
+          }
+
+          {vacancy?.originalUrls &&
             <>
-            <h5 className="card text-white bg-dark mb-3">Possible duplicates</h5>
+            <h5 className="card text-white bg-dark mb-3">Original links</h5>
             {vacancy.originalUrls.map((url) => (
-
-              <div>
-                <a href={dup.url} target="_blank" rel="noreferrer">{dup.url}</a>
+              <div key={url}>
+                <a href={url} target="_blank" rel="noreferrer">{url}</a>
                 <button className="btn btn-outline-primary mx-2 mb-3" style={{'borderRadius':'50px',
-                "fontWeight":"bold"}} onClick={LoadSiteJobHandler(url)}>Load Site Vacancy</button>
-              </div>
-            
-            {duplicates.map((dup) => (
-              <div >
-                <label htmlFor='Position'>{dup.position} </label>
-                <label htmlFor='Company'>{dup.organization} </label>
-                {dup.site === 'Main' &&
-                  <button className="btn btn-outline-primary mx-2 mb-3" style={{'borderRadius':'50px',
-                  "fontWeight":"bold"}} onClick={showMainJobHandler(dup.id)}>Main</button>
-                }
-                {!dup.site &&
-                  <>
-                    <a href={dup.url} target="_blank" rel="noreferrer">{dup.url}</a>
-                    
-                  </>
-                }
-                <button className="btn btn-primary" style={{'borderRadius':'50px',
-                "fontWeight":"bold"}} onClick={() => addDuplicateHandler(dup.id)}>Add as duplicate</button>
+                "fontWeight":"bold"}} onClick={() => loadSiteJobHandler(url)}>Load Site Vacancy</button>
               </div>
             ))}
-          </>          
-
-          } */}
+            </>
+          }
+   
           {duplicates && !isPopup && 
             <>
               <h5 className="card text-white bg-dark mb-3">Possible duplicates</h5>
               {duplicates.map((dup) => (
-                <div key={dup.id}>
+                <div key={dup.mainId}>
                   <label htmlFor='Position'>{dup.position} </label>
                   <label htmlFor='Company'>{dup.organization} </label>
                   {dup.site === 'Main' &&
                     <button className="btn btn-outline-primary mx-2" style={{'borderRadius':'50px',
-                    "fontWeight":"bold"}} onClick={() => showMainJobHandler(dup.id)}>Main</button>
+                    "fontWeight":"bold"}} onClick={() => showMainJobHandler(dup.mainId)}>Main</button>
                   }
                   {!dup.site &&
                     <>
@@ -219,7 +231,7 @@ function App() {
                     </>
                   }
                   <button className="btn btn-primary" style={{'borderRadius':'50px',
-                  "fontWeight":"bold"}} onClick={() => addDuplicateHandler(dup.id)}>Add as duplicate</button>
+                  "fontWeight":"bold"}} onClick={() => addAsDuplicateHandler(dup.mainId)}>Add as duplicate</button>
                 </div>
               ))}
             </>
